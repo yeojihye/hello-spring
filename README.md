@@ -52,7 +52,7 @@ static class Hello {
 
 ### @ResponseBody 사용 원리
 
-![image](https://user-images.githubusercontent.com/81161651/159925657-c5c38a73-bc25-404b-b304-f1b2ad194c0a.png)
+<img src="https://user-images.githubusercontent.com/81161651/159925657-c5c38a73-bc25-404b-b304-f1b2ad194c0a.png" width=500/>
 
 스프링 부트에서 `@ResponseBody`는 요청받은 데이터를 `HTTP`의 `BODY`에 그대로 넘겨야 겠다고 해석한다.
 
@@ -470,3 +470,171 @@ class MemberServiceTest {
 ```
 
 `@BeforeEach` : 각 테스트 실행 전에 호출된다. 테스트가 서로 영향이 없도록 항상 새로운 객체를 생성하고, 의존 관계도 새로 맺어준다. 
+
+# 스프링 빈과 의존관계
+
+이제 회원가입 화면을 만든다고 해보자. 회원가입 화면을 구현하려면 `Controller`가 필요한데 `Controller`는 `Service`에 만들어둔
+`회원가입` 기능을 통해서 동작되도록 해야한다. 그러려면 `Conroller`와 `Service`를 연결시켜 줘야하는데 이걸 스프링으로 구현할 수 있다.
+
+```java
+package com.example.hellospring.controller;
+
+import com.example.hellospring.service.MemberService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+
+@Controller
+public class MemberController {
+
+    private final MemberService memberService;
+
+    @Autowired
+    public MemberController(MemberService memberService) {
+        this.memberService = memberService;
+    }
+}
+```
+
+`Controller`에서 `Service`를 주입할 때는 
+
+```java
+MemberService memberService = new MemberService();
+```
+
+위의 코드 처럼 `new`를 사용하지 않는다. `new`를 사용하면 다른데서 `MemberService`를 쓸 때 하나의 `MemberService`를 공유하는 것이 아니라,
+여러개의 `MemberService`를 생성하는 꼴이 된다. 이것이 스프링 컨테이너에 등록하고 사용해야 하는 이유이다.
+
+`@Autowired` : 스프링이 연관된 객체를 스프링 컨테이너에서 찾아서 넣어준다.
+(여기서는 `MemberService`를 스프링 컨테이너에서 가져다 `MemberController`와 연결해준다.)
+
+아래와 같은 오류가 발생한다면,
+
+```java
+Consider defining a bean of type 'hello.hellospring.service.MemberService' in
+your configuration.
+```
+
+`MemberService`를 스프링 빈으로 등록하지 않았았기 때문에 스프링 컨테이너에서 찾을 수 없어서 
+발생하는 것이다.
+
+> 참고: helloController는 스프링이 제공하는 컨트롤러여서 스프링 빈으로 자동 등록된다.
+
+스프링 컨테이너는 `@Controller`와 같은 어노테이션을 찾아서 그 객체를 스프링에 넣어둔고 관리한다. 
+그래서 컨트롤러가 동작할 수 있는 것이다.
+
+### 컴포넌트 스캔 원리
+
+- `@Component` 어노테이션이 있으면 스프링 빈으로 자동 등록된다.
+- `@Controller` 컨트롤러가 스프링 빈으로 자동 등록된 이유도 컴포넌트 스캔 때문이다.
+- `@Component`를 포함하는 다음 어노테이션도 스프링 빈으로 자동 등록된다.
+  - `@Service`
+  - `@Repository`
+
+컨트롤러와 서비스 연결 : `@Autowired` (DI) 의존관계 주입
+
+### 스프링 컨테이너에 빈 등록하는 2 가지 방법
+
+1. 컴포넌트 스캔 (ex. `@Controller`...)
+2. 자동 의존관계 설정
+
+## 1. 컴포넌트 스캔과 자동 의존관계 설정
+
+`memberService` 와 `memberRepository` 가 스프링 컨테이너에 스프링 빈으로 등록시켜준다.
+
+```java
+@Service
+public class MemberService {
+
+  private final MemberRepository memberRepository;
+
+  @Autowired
+  public MemberService(MemberRepository memberRepository) {
+    this.memberRepository = memberRepository;
+  }
+}
+```
+
+```java
+@Repository
+public class MemoryMemberRepository implements MemberRepository {
+  ...
+}
+```
+
+![image](https://user-images.githubusercontent.com/81161651/160232918-4625cb05-6ae4-4413-8df3-ff49975cdd0f.png)
+
+> 참고: 생성자에 @Autowired 를 사용하면 객체 생성 시점에 스프링 컨테이너에서 해당 스프링 빈을
+> 찾아서 주입한다. 생성자가 1개만 있으면 @Autowired 는 생략할 수 있다.
+
+> 참고: 스프링은 스프링 컨테이너에 스프링 빈을 등록할 때, 기본으로 싱글톤으로 등록한다. (유일
+> 하게 하나만 등록해서 공유) (메모리도 절약되고 좋음) 설정으로 싱글톤이 아니게 할 수 있지만
+> 거의 대부분 싱글톤만 사용한다.
+
+## 2. 자바 코드로 직접 스프링 빈 등록하기
+
+- 회원 서비스와 회원 리포지토리의 `@Service`, `@Repository`, `@Autowired` 어노테이션을 제거하고 진행한다.
+
+- `HelloSpringApplication`과 같은 레벨에 `SpringConfig` 클래스 파일 생성
+
+```java
+package com.example.hellospring;
+
+import com.example.hellospring.repository.MemberRepository;
+import com.example.hellospring.repository.MemoryMemberRepository;
+import com.example.hellospring.service.MemberService;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class SpringConfig {
+
+    @Bean
+    public MemberService memberService() {
+        return new MemberService(memberRepository());
+    }
+
+    @Bean
+    public MemberRepository memberRepository() {
+        return new MemoryMemberRepository();
+    }
+}
+```
+
+컴포넌트 스캔방식과 자바코드로 직접 등록하는 방식에는 장단점이 있디. 처음 설정할 때 편한 것은
+컴포넌트 스캔방식이지만, 향후 빈을 수정할 때는 자바 코드로 관리하는 것이 좋다. 
+
+여기서는 향후 메모리 리포지토리를 다른 리포지토리로 변경할 예정이므로, 컴포넌트 스캔 방식
+대신에 자바 코드로 스프링 빈을 설정하겠다.
+
+실무에서는 주로 정형화된 컨트롤러, 서비스 리포지토리 같은 코드는 컴포넌트 스캔을 사용한다.
+정형화 되지 않거나 상황에 따라 구현 클래스를 변경해야 하면 설정을 통해 스프링 빈으로 등록한다.
+
+### DI 세 가지 방법
+
+1. 필드 주입
+
+```java
+@Autowired private MemberService memberService;
+```
+
+- 중간에 수정이 어렵기 때문에 별로 좋은 방법은 아니다.
+
+2. Setter 주입
+
+```java
+    private MemberService memberService;
+
+    @Autowired
+    public void setMemberService(MemberService memberService) {
+        this.memberService = memberService;
+    }
+```
+
+- setter가 public하게 노출이 되기 때문에 중간에 바꿔치기될 위험성이 있다.
+
+3. 생성자 주입
+
+- 가장 안정성있다.
+
+> 주의 : 스프링 빈으로 등록해야지만 `Autowired`가 동작한다. 스프링 빈으로 등록하지 않고 내가 
+> 직접 생성한 객체에서는 동작하지 않는다.
