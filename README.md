@@ -638,3 +638,127 @@ public class SpringConfig {
 
 > 주의 : 스프링 빈으로 등록해야지만 `Autowired`가 동작한다. 스프링 빈으로 등록하지 않고 내가 
 > 직접 생성한 객체에서는 동작하지 않는다.
+
+# 회원 관리 예제 - 웹 MVC 개발
+
+## 1. 회원 웹 기능 - 홈 화면 추가
+
+### 홈 컨트롤러 추가
+
+```java
+package com.example.hellospring.controller;
+
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
+
+@Controller
+public class HomeController {
+    @GetMapping("/")
+    public String home() {
+        return "home";
+    }
+}
+```
+
+### 회원 관리용 홈 HTML
+
+```html
+<!DOCTYPE HTML>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<div class="container">
+  <div>
+    <h1>Hello Spring</h1>
+    <p>회원 기능</p>
+    <p>
+      <a href="/members/new">회원 가입</a>
+      <a href="/members">회원 목록</a>
+    </p>
+  </div>
+</div> <!-- /container -->
+</body>
+</html>
+```
+
+왜 `/` 경로로 이동했는데 static에 있는 index.html은 찾지 않을까?
+
+-> 우선 순위가 있다. 요청이 오면 먼저 컨트롤러를 뒤지고, 없으면 정적파을을 뒤지게 되어있다.
+
+![정적컨텐츠이미지](https://user-images.githubusercontent.com/81161651/160282020-60c5aa62-577c-4653-8d55-2a1190e624b3.png)
+
+## 2. 회원 웹 기능 - 등록
+
+### 웹 등록 화면에서 데이터를 전달 받을 폼 객체
+
+```java
+package com.example.hellospring.controller;
+
+public class MemberForm {
+  private String name;
+
+  public String getName() {
+    return name;
+  }
+
+  public void setName(String name) {
+    this.name = name;
+  }
+}
+```
+
+### 회원 컨트롤러에서 회원을 실제 등록하는 기능
+
+```java
+@PostMapping("/members/new")
+public String create(MemberForm form) {
+    Member member = new Member();
+    member.setName(form.getName());
+
+    memberService.join(member);
+
+    return "redirect:/";
+}
+```
+
+`MemberForm`의 `setName`을 통해 input에서 받은 name이 들어간다. 
+
+## 3. 회원 웹 기능 - 조회
+
+### 회원 컨트롤러에서 조회 기능
+
+```java
+    @GetMapping("/members")
+    public String list(Model model) {
+        List<Member> members = memberService.findMembers();
+        model.addAttribute("members", members);
+        return "members/memberList";
+    }
+```
+
+### 회원 리스트 HTML
+
+```html
+<!DOCTYPE HTML>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<div class="container">
+  <div>
+    <table>
+      <thead>
+      <tr>
+        <th>#</th>
+        <th>이름</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr th:each="member : ${members}">
+        <td th:text="${member.id}"></td>
+        <td th:text="${member.name}"></td>
+      </tr>
+      </tbody>
+    </table>
+  </div>
+</div> <!-- /container -->
+</body>
+</html>
+```
